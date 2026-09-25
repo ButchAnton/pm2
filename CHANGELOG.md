@@ -1,3 +1,51 @@
+## 7.0.5
+
+### Features
+
+- `pm2 monit` / `pm2 dash` now preload the last 200 lines (out + err merged) of every process from its log files, most recent first; `--lines <n>` to display more #5187
+- `pm2 monit`: Ctrl+Up / Ctrl+Down (and PageUp / PageDown) scroll the focused log pane page by page
+
+### Bug Fixes
+
+- Shell environment variables named like a PM2 option (`name`, `namespace`, `cron_restart`, `instances`...) no longer override the app configuration #6006 #6016 #5747 #5622 #5030 #5032 #4943 #4778 #4821 #3210
+- Variables declared in `env:` and named like a PM2 option (`env: { port: 3000 }`, `time`, `watch`...) still reach the app: only the ambient shell environment is filtered, not what the user declares
+- Cluster mode: the pid list of the previous kill (`_tree_pids`, since 7.0.0) no longer leaks into the app's `process.env` after a restart, nor gets reused as the pid list of a later kill
+- `pm2 monit`: align the Custom Metrics pane in columns (value right-aligned, fixed unit column, numbers rounded to 2 decimals) and shorten long metric names instead of pushing values out of the pane
+- `pm2 monit`: the footer no longer overlaps the bottom border of the Custom Metrics / Metadata panes
+- `pm2 monit`: logs, metrics and metadata panes update instantly when the selected process changes (no longer wait for the next refresh tick)
+- `pm2 monit`: characters of old log lines no longer stay stuck on screen — emoji are now measured as 2 cells, and `\r`, cursor escape sequences, control chars and `{tags}` in logs are sanitized #5397
+- `@pm2/blessed` is now vendored in `modules/blessed` (one less npm dependency)
+- Logs: no more lost lines in fork mode with `--time` / `log_date_format` when an app writes more than 64KB at once (partial line at a pipe chunk boundary was dropped) #6125
+- Logs: in cluster mode with `--time`, every line of a multi-line write is now date-prefixed (not only the first)
+- `pm2 logs "/regex/" --lines 0` now streams matching apps (regex was ignored in stream-only mode); regexes with an inner `/` are no longer mangled, apps started after `pm2 logs` are picked up, and only one bus subscription is opened #5196
+- `pm2 reloadLogs` no longer crashes the app in fork mode when `out_file`/`error_file` are `NULL` and only `log_file` is set #5509
+- Logs: log streams are now flushed (`end()`) instead of destroyed on `pm2 reloadLogs` / app exit, so buffered data is no longer truncated
+- `pm2 serve`: a request with a malformed percent-escape (`GET /%`) no longer crashes the server (answers 400); handler exceptions answer 500 instead of killing the process
+- Logs: in cluster mode, output that bypasses `process.stdout.write` (pino/sonic-boom, `npm start`, children spawned with stdio `inherit`) no longer ends up in `pm2.log` — workers get piped stdio and the daemon routes it to the app log files and `pm2 logs` #3675 #4719 #4872 #4916 #4953 #5633 #4816
+- Logs: in cluster mode, the worker's stdout/stderr pipes are made blocking so a raw write bigger than the pipe buffer (`fs.writeSync(1, ...)`, native addons) is no longer silently truncated at 64 KB #4044 #4872
+- `exec_mode: cluster` on a non Node.js/Bun script (bash, python, binary) now falls back to fork mode with a warning instead of crashing with `SyntaxError: Invalid or unexpected token` (ELF) #4775
+- Node.js/Bun interpreter detection now accepts atypical binary names (`node.exe`, `node64.exe`, `nodejs`, `node18`, `node@18`, `bun.exe`), so cluster mode and the fork-mode wrapper are no longer skipped for them
+
+## 7.0.4
+
+### Features
+
+- Start `.ts` apps with Node.js native type stripping when bun is not installed (Node.js >= 22.18 / 23.6, `--experimental-strip-types` auto-injected on 22.6+); `ts-node` fallback now resolved from the app's own dependencies
+
+### Bug Fixes
+
+- Fix `pm2 start --container` / `--container --dist` crashing with `Cannot find module` — wrong require depth in `Containerizer.js` from the v7 promptly internalization
+- Bump `js-yaml` 4.3.0 → 4.3.1
+- Fix overlapping reloads colliding on the `_old_<pm_id>` slot and orphaning a cluster worker — a reload is now refused while one is in progress #6129
+- Ignore stale exit events from a replaced process — fixes double start on Windows with `shutdown_with_message` #6142
+- Fix `retrying in NaNms` kill log and ~1ms poll spam when `kill_retry_time` is unset — fallback to `KILL_RETRY_TIME` constant (100ms, `PM2_KILL_RETRY_TIME` overridable)
+- Fix `pm2 start`/`restart` RPC hanging forever when a cluster worker dies before its `online` event (bad `node_args`, boot OOM) — executeApp now concludes on exit-before-online
+- Surface the daemon's actual error in CLI output instead of masking everything as `Process not found`
+- Pin OpenTelemetry package versions in `pm2 install-otel` and re-emit legacy HTTP span tags (`http.method`, `http.status_code`, `http.target`) dropped by `@opentelemetry/instrumentation-http` >= 0.220
+
+### Core Refactor
+
+- Remove dead code: `promise.min.js` polyfill (native `Promise`), `IsAbsolute.js` (native `path.isAbsolute`), unused Java/Ruby Dockerfile templates, always-false `win64` platform checks
 
 ## 7.0.3
 
